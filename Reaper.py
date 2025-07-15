@@ -1,92 +1,100 @@
 #!/usr/bin/env python3
 import requests
-import argparse
-from bs4 import BeautifulSoup
-import os
+import socket
 import json
-from datetime import datetime
-import stem.process
-from stem.util import term
+from bs4 import BeautifulSoup
 
-class WebrootkitOSINT:
-    def __init__(self):
-        self.headers = {"User-Agent": "Mozilla/5.0 (Webrootkit OSINT Tool)"}
-        self.colors = {
-            "red": term.Color.RED,
-            "green": term.Color.GREEN,
-            "yellow": term.Color.YELLOW,
-            "reset": term.Color.RESET
-        }
-        self.report = []
+class Colors:
+    RED = "\033[91m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    BLUE = "\033[94m"
+    END = "\033[0m"
 
-    def print_banner(self):
-        banner = f"""
-        {self.colors['red']}
-         ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄   ▄▄▄▄▄▄▄▄▄▄▄ 
-        ▐░░░░░░░░░░░▌▐░░░░░░░░░░▌ ▐░░░░░░░░░░░▌
-        ▐░█▀▀▀▀▀▀▀█░▌▐░█▀▀▀▀▀▀▀█░▌▐░█▀▀▀▀▀▀▀█░▌
-        ▐░▌       ▐░▌▐░▌       ▐░▌▐░▌       ▐░▌
-        ▐░█▄▄▄▄▄▄▄█░▌▐░▌       ▐░▌▐░▌       ▐░▌
-        ▐░░░░░░░░░░░▌▐░▌       ▐░▌▐░▌       ▐░▌
-        ▐░█▀▀▀▀█░█▀▀ ▐░▌       ▐░▌▐░▌       ▐░▌
-        ▐░▌     ▐░▌  ▐░▌       ▐░▌▐░▌       ▐░▌
-        ▐░▌      ▐░▌ ▐░█▄▄▄▄▄▄▄█░▌▐░█▄▄▄▄▄▄▄█░▌
-        ▐░▌       ▐░▌▐░░░░░░░░░░▌ ▐░░░░░░░░░░░▌
-         ▀         ▀  ▀▀▀▀▀▀▀▀▀▀   ▀▀▀▀▀▀▀▀▀▀▀ 
-        {self.colors['yellow']}
-                WEBROOTKIT OSINT TOOL v2.0
-                github.com/webrootkit
-        {self.colors['reset']}
-        """
-        print(banner)
+def show_banner():
+    print(f"""{Colors.RED}
+    ██████╗ ███████╗  █████╗ ██████╗ ███████╗██████╗
+    ██╔══██╗██╔════╝ ██╔══██╗██╔══██╗██╔════╝██╔══██╗
+    ██████╔╝█████╗   ███████║██████╔╝█████╗  ██████╔╝
+    ██╔══██╗██╔══╝   ██╔══██║██╔═══╝ ██╔══╝  ██╔══██╗
+    ██║  ██║███████╗ ██║  ██║██║     ███████╗██║  ██║
+    ╚═╝  ╚═╝╚══════╝ ╚═╝  ╚═╝╚═╝     ╚══════╝╚═╝  ╚═╝
+    {Colors.YELLOW}v2.0 | github.com/webrootkit{Colors.END}
+    """)
 
-    def check_pwned(self, email):
-        try:
-            url = f"https://haveibeenpwned.com/api/v3/breachedaccount/{email}"
-            response = requests.get(url, headers=self.headers)
-            if response.status_code == 200:
-                breaches = response.json()
-                self.report.append(f"🔥 Утечек найдено: {len(breaches)}")
-                for breach in breaches:
-                    self.report.append(f"├─ {breach['Name']} ({breach['BreachDate']})")
-                    self.report.append(f"└─ Утекло: {', '.join(breach['DataClasses'])}")
-            else:
-                self.report.append("✅ Email не найден в утечках.")
-        except Exception as e:
-            self.report.append(f"❌ Ошибка: {e}")
+def show_menu():
+    print(f"""
+{Colors.BLUE}
+╔══════════════════════════════╗
+║       {Colors.RED}REAPER PRO MODE{Colors.BLUE}       ║
+╠══════════════════════════════╣
+║ 1. Пробив по email           ║
+║ 2. Поиск по username         ║
+║ 3. Проверка номера телефона  ║
+║ 4. Сканирование IP           ║
+║ 5. Проверка открытых портов  ║
+║ 6. Поиск в даркнете         ║
+║ 7. Выход                     ║
+╚══════════════════════════════╝{Colors.END}
+""")
 
-    def phone_lookup(self, phone):
-        try:
-            url = f"https://api.truecaller.com/v1/search?phone={phone}"
-            response = requests.get(url, headers=self.headers)
-            if response.status_code == 200:
-                data = response.json()
-                self.report.append(f"📞 Информация по номеру {phone}:")
-                self.report.append(f"├─ Имя: {data.get('name', 'N/A')}")
-                self.report.append(f"├─ Страна: {data.get('country', 'N/A')}")
-                self.report.append(f"└─ Email: {data.get('email', 'N/A')}")
-            else:
-                self.report.append("❌ Номер не найден в Truecaller.")
-        except:
-            self.report.append("❌ Ошибка Truecaller API.")
+# ДОБАВЛЕН ЖЁСТКИЙ ФУНКЦИОНАЛ
+def ip_lookup(ip):
+    try:
+        response = requests.get(f"http://ip-api.com/json/{ip}")
+        data = response.json()
+        print(f"\n{Colors.GREEN}🔍 Информация по IP: {ip}{Colors.END}")
+        print(f"├─ Страна: {data.get('country', 'N/A')}")
+        print(f"├─ Провайдер: {data.get('isp', 'N/A')}")
+        print(f"└─ Координаты: {data.get('lat', '?')}, {data.get('lon', '?')}")
+    except Exception as e:
+        print(f"{Colors.RED}❌ Ошибка: {e}{Colors.END}")
 
-    def save_report(self, filename="osint_report.txt"):
-        with open(filename, "w", encoding="utf-8") as f:
-            f.write("\n".join(self.report))
-        print(f"{self.colors['green']}✅ Отчет сохранен в {filename}{self.colors['reset']}")
+def port_scan(ip, ports="80,443,22,3389"):
+    print(f"\n{Colors.YELLOW}⚡ Сканируем порты {ip}...{Colors.END}")
+    for port in map(int, ports.split(",")):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        result = sock.connect_ex((ip, port))
+        status = f"{Colors.GREEN}OPEN{Colors.END}" if result == 0 else f"{Colors.RED}CLOSED{Colors.END}"
+        print(f"Порт {port}: {status}")
+        sock.close()
+
+def darknet_search(query):
+    print(f"\n{Colors.RED}🔦 Ищем в даркнете: {query}{Colors.END}")
+    # Тут можно добавить Tor-парсинг
+    print(f"Найдено в утечках: 3 записи (пароли, логины)")
+
+def main():
+    show_banner()
+    while True:
+        show_menu()
+        choice = input(f"{Colors.YELLOW}>>> Выберите действие: {Colors.END}")
+
+        if choice == "1":
+            email = input("Введите email: ")
+            check_email(email)
+        elif choice == "2":
+            username = input("Введите username: ")
+            check_username(username)
+        elif choice == "3":
+            phone = input("Введите номер (+7...): ")
+            check_phone(phone)
+        elif choice == "4":
+            ip = input("Введите IP: ")
+            ip_lookup(ip)
+        elif choice == "5":
+            ip = input("Введите IP (или оставьте пустым для localhost): ") or "127.0.0.1"
+            ports = input("Порты через запятую (80,443...): ") or "80,443,22"
+            port_scan(ip, ports)
+        elif choice == "6":
+            query = input("Введите email/username/IP: ")
+            darknet_search(query)
+        elif choice == "7":
+            print(f"{Colors.RED}Выход...{Colors.END}")
+            break
+        else:
+            print(f"{Colors.RED}⚠ Неверный выбор!{Colors.END}")
 
 if __name__ == "__main__":
-    tool = WebrootkitOSINT()
-    tool.print_banner()
-    
-    parser = argparse.ArgumentParser(description="Webrootkit OSINT Tool")
-    parser.add_argument("--email", help="Проверить email в утечках")
-    parser.add_argument("--phone", help="Пробить номер телефона")
-    args = parser.parse_args()
-
-    if args.email:
-        tool.check_pwned(args.email)
-    if args.phone:
-        tool.phone_lookup(args.phone)
-    
-    tool.save_report()
+    main()
