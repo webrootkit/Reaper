@@ -7,7 +7,8 @@
 - Поиск по email (Have I Been Pwned)
 - Пробив номеров (Truecaller API)
 - Парсинг соцсетей (GitHub, VK, Telegram)
-- Tor-режим (для .onion сайтов)
+- Пробив по IP-Adress
+- Пробив по Портам
 
 ```bash
 python Reaper.py --email target@example.com
